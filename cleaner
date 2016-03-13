@@ -1,0 +1,64 @@
+#!/bin/bash
+
+# find target to clean
+TARGET='".DS_Store" "._*"'
+TARGET+=' "Thumbs.db"'
+DEBUG="0"
+
+function targetToArgv()
+{
+    STRING=$1
+    FIND_STRING_TO_REPLACE=" "
+    REPLACE_STRING=" -o -name "
+
+    # method 1
+    #RESULT=$(sed "s/$FIND_STRING_TO_REPLACE/$REPLACE_STRING/g" <<< $STRING)
+    # method 2
+    RESULT=$(echo "$STRING" | sed "s/$FIND_STRING_TO_REPLACE/$REPLACE_STRING/g")
+    echo "$RESULT"
+}
+
+function confirm()
+{
+    # call with a prompt string or use a default
+    read -r -p "${1:-Are you sure? [y/N]} " RESPONSE
+    case $RESPONSE in [yY][eE][sS]|[yY])
+        echo "yes"
+        ;;
+    *)
+        echo "no"
+        ;;
+esac
+}
+
+if [ "$1" == "" ]; then
+    echo "Usage: $0 path"
+    exit
+fi
+
+# preare argv of find command
+ARGV=$(targetToArgv "$TARGET")
+COMMAND="find $1 -type f \( -name $ARGV \)"
+COMMAND+=" | tee /tmp/file2clean.txt.$$"
+
+# execute command
+if [ "$DEBUG" == "1" ]; then
+    echo "Execute Command: $COMMAND"
+else
+    echo "find $TARGET ..."
+fi
+eval $COMMAND
+
+# check result of find command
+if [[ ! -s /tmp/file2clean.txt.$$ ]]; then
+    echo "find anything..."
+    exit
+fi
+
+# confirm the answer and delete files
+ANSWER=$(confirm "Delete these files? [y/N]")
+if [ "$ANSWER" == "yes" ]; then
+    COMMAND="find $1 -type f \( -name $ARGV \) -print0 | xargs -0 rm"
+    eval $COMMAND
+fi
+
